@@ -1,0 +1,167 @@
+<html>
+    <head>
+        <link rel="stylesheet"
+            href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+        >
+        <style>
+            .nopadding {
+               padding: 0 !important;
+               margin: 0 !important;
+            }
+            .vertical-sep {
+                border-left:1px dashed #333
+            }
+        </style>
+
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-xs-6">
+                    <!-- <autocomplete></autocomplete> -->
+                    <div>{{ message }}</div>
+
+                    <!-- TODO: make the items scrollable and limit the visible count -->
+                    <div style="position:relative" v-bind:class="{'open':openSuggestion}">
+                        <input class="form-control" type="text" 
+                            v-model="selection" 
+                            placeholder="Enter a few letters of a condition"
+                            @keydown.enter = 'enter'
+                            @keydown.down = 'down'
+                            @keydown.up = 'up'
+                            @input = 'change'>
+
+                        <div class="dropdown-menu list-group" style="width:100%">
+                            <div v-on:click.stop="suggestionClick($index)" v-for="item in matches" class="list-group-item nopadding"
+                                v-bind:class="{'active': isActive($index)}">
+                                <a id="{{ item.id }}" href="#" class="list-group-item">
+                                    <h4 class="list-group-item-heading">{{ item.name }}</h4>
+                                    <p class="list-group-item-text">Short description or category of condition can go here</p>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xs-6 vertical-sep">
+                    <div>Your {{ message }}</div>
+                    <div id="selections" class="list-group" style="width:100%">
+                        <div v-on:click.stop="selectionsClick($index)" v-for="item in selections" class="list-group-item nopadding">
+                            <a id="{{ item.id }}" href="#" class="list-group-item">
+                                <h4 class="list-group-item-heading">{{ item.name }}</h4>
+                                <p class="list-group-item-text">Short description or category of condition can go here</p>
+                            </a>
+                        </div>
+                    </div>
+                    <button>Update</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/1.0.26/vue.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue-resource/0.9.1/vue-resource.min.js"></script>
+        <script>
+            new Vue({
+                el: 'body',
+                data: {
+                    message: 'Conditions:',
+                    open: false,
+                    current: 0,
+                    suggestions: [], // complete list from database
+                    selections: [],  // items selected by user
+                    selection: ''
+                },
+
+                computed: {
+
+                    //Filtering the suggestion based on the input
+                    matches() {
+                        //console.log("selection:"+this.selection);
+                        return this.suggestions.filter((str) => {
+                            //console.log("str:"+str.name);
+                            var re = new RegExp(this.selection, "ig");
+                            return re.test(str.name);
+                        });
+                    },
+
+                    //The flag
+                    openSuggestion() {
+                        //console.log(this.selection);
+                        var isOpen = 
+                            this.selection !== "" &&
+                            this.selection.length >= 2 &&
+                            this.matches.length > 0 &&
+                            this.open === false;
+                        return isOpen;
+                    }
+                },
+
+                created: function() {
+                    this.$http.get('/conditions.js').then(
+                        // success
+                        (response) => {
+                            this.suggestions = JSON.parse(response.body);
+                            //console.log(this.suggestions[0].name);
+                        }
+                    ).catch(function(err) {
+                        // failure
+                        alert("Could not load conditions from server");
+                        console.log(err);
+                    });
+                },
+
+                methods: {
+                    //When enter pressed on the input
+                    enter() {
+                        this.selection = this.matches[this.current].name;
+                        this.open = false;
+                    },
+
+                    //When up pressed while suggestions are open
+                    up() {
+                        if(this.current > 0)
+                            this.current--;
+                    },
+
+                    //When up pressed while suggestions are open
+                    down() {
+                        if(this.current < this.suggestions.length - 1)
+                            this.current++;
+                    },
+
+                    //For highlighting element
+                    isActive(index) {
+                        return index === this.current;
+                    },
+
+                    //When the user changes input
+                    change() {
+                        if (this.open == false) {
+                            //this.open = true;
+                            this.current = 0;
+                        }
+                    },
+
+                    //When one of the suggestion is clicked
+                    suggestionClick(index) {
+                        obj = this.matches[index];
+                        //console.log("got click on "+obj.name);
+                        this.current = index;
+                        this.selection = '';
+                        this.selections.push(obj);
+
+                        //remove item from original list so it's not duplicated
+                        for(i=this.suggestions.length-1; i>=0; i--) {
+                            if( this.suggestions[i].id == obj.id) {
+                                this.suggestions.splice(i,1);
+                                break;
+                            }
+                        }
+                        //console.log(this.selections[0].name);
+                        //this.open = false;
+                    }
+                }
+            });
+        </script>
+    </body>
+</html>
